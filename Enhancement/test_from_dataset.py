@@ -1,8 +1,8 @@
-# Retinexformer: One-stage Retinex-based Transformer for Low-light Image Enhancement
-# Yuanhao Cai, Hao Bian, Jing Lin, Haoqian Wang, Radu Timofte, Yulun Zhang
-# International Conference on Computer Vision (ICCV), 2023
-# https://arxiv.org/abs/2303.06705
-# https://github.com/caiyuanhao1998/Retinexformer
+# RT-X Net: RGB-Thermal cross attention network for Low-Light Image Enhancement
+# Raman Jha, Adithya Lenka, Mani Ramanagopal, Aswin Sankaranarayanan, Kaushik Mitra
+# International Conference on Image Processing, IEEE ICIP 2025
+# https://arxiv.org/abs/2505.24705
+# https://github.com/jhakrraman/rt-xnet
 
 from ast import arg
 import numpy as np
