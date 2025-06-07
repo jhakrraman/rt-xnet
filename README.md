@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 &nbsp;
 
 <div align="center">
@@ -598,3 +599,8 @@ bash train_multigpu.sh Options/MST_Plus_Plus_NTIRE_8x1150.yml 0,1,2,3,4,5,6,7 43
 }
 ```
 
+=======
+# rt-xnet
+
+We will update the code, and the V-TIEE dataset in the upcoming week.
+>>>>>>> 471bd1883b19fa15dc23239c1584502373ed46d2
