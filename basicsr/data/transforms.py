@@ -23,67 +23,56 @@ def mod_crop(img, scale):
     return img
 
 
-def paired_random_crop(img_gts, img_lqs, lq_patch_size, scale, gt_path):
-    """Paired random crop.
-
-    It crops lists of lq and gt images with corresponding locations.
-
-    Args:
-        img_gts (list[ndarray] | ndarray): GT images. Note that all images
-            should have the same shape. If the input is an ndarray, it will
-            be transformed to a list containing itself.
-        img_lqs (list[ndarray] | ndarray): LQ images. Note that all images
-            should have the same shape. If the input is an ndarray, it will
-            be transformed to a list containing itself.
-        lq_patch_size (int): LQ patch size.
-        scale (int): Scale factor.
-        gt_path (str): Path to ground-truth.
-
-    Returns:
-        list[ndarray] | ndarray: GT images and LQ images. If returned results
-            only have one element, just return ndarray.
-    """
-
+def paired_random_crop(img_gts, img_lqs, img_ths, lq_patch_size, scale, gt_path):
     if not isinstance(img_gts, list):
         img_gts = [img_gts]
     if not isinstance(img_lqs, list):
         img_lqs = [img_lqs]
+    if not isinstance(img_ths, list):
+        img_ths = [img_ths]
 
     h_lq, w_lq, _ = img_lqs[0].shape
     h_gt, w_gt, _ = img_gts[0].shape
-    gt_patch_size = int(lq_patch_size * scale)
+    h_th, w_th, _ = img_ths[0].shape
 
+    # Check all dimensions match expected scale
     if h_gt != h_lq * scale or w_gt != w_lq * scale:
         print(gt_path)
         raise ValueError(
-            f'Scale mismatches. GT ({h_gt}, {w_gt}) is not {scale}x ',
+            f'Scale mismatches. GT ({h_gt}, {w_gt}) is not {scale}x '
             f'multiplication of LQ ({h_lq}, {w_lq}).')
+    if h_th != h_lq or w_th != w_lq:
+        raise ValueError(
+            f'Thermal image ({h_th}, {w_th}) should match LQ ({h_lq}, {w_lq}).')
+
     if h_lq < lq_patch_size or w_lq < lq_patch_size:
         raise ValueError(f'LQ ({h_lq}, {w_lq}) is smaller than patch size '
                          f'({lq_patch_size}, {lq_patch_size}). '
                          f'Please remove {gt_path}.')
 
-    # randomly choose top and left coordinates for lq patch
+    # Random crop coordinates
     top = random.randint(0, h_lq - lq_patch_size)
     left = random.randint(0, w_lq - lq_patch_size)
 
-    # crop lq patch
-    img_lqs = [
-        v[top:top + lq_patch_size, left:left + lq_patch_size, ...]
-        for v in img_lqs
-    ]
+    # Crop LQ and Thermal
+    img_lqs = [v[top:top + lq_patch_size, left:left + lq_patch_size, ...] for v in img_lqs]
+    img_ths = [v[top:top + lq_patch_size, left:left + lq_patch_size, ...] for v in img_ths]
 
-    # crop corresponding gt patch
+    # Crop GT
     top_gt, left_gt = int(top * scale), int(left * scale)
-    img_gts = [
-        v[top_gt:top_gt + gt_patch_size, left_gt:left_gt + gt_patch_size, ...]
-        for v in img_gts
-    ]
+    gt_patch_size = int(lq_patch_size * scale)
+    img_gts = [v[top_gt:top_gt + gt_patch_size, left_gt:left_gt + gt_patch_size, ...] for v in img_gts]
+
+    # Return single images (if input wasn’t a list)
     if len(img_gts) == 1:
         img_gts = img_gts[0]
     if len(img_lqs) == 1:
         img_lqs = img_lqs[0]
-    return img_gts, img_lqs
+    if len(img_ths) == 1:
+        img_ths = img_ths[0]
+
+    return img_gts, img_lqs, img_ths
+
 
 
 def paired_random_crop_DP(img_lqLs, img_lqRs, img_gts, gt_patch_size, scale, gt_path):
@@ -279,3 +268,4 @@ def random_augmentation(*args):
     for data in args:
         out.append(data_augmentation(data, flag_aug).copy())
     return out
+

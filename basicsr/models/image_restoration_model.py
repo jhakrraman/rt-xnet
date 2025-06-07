@@ -37,25 +37,31 @@ class Mixing_Augment:
 
         self.augments = [self.mixup]
 
-    def mixup(self, target, input_):
+    def mixup(self, target, input1, input2):
         lam = self.dist.rsample((1, 1)).item()
 
         r_index = torch.randperm(target.size(0)).to(self.device)
 
         target = lam * target + (1 - lam) * target[r_index, :]
-        input_ = lam * input_ + (1 - lam) * input_[r_index, :]
+        input1 = lam * input1 + (1 - lam) * input1[r_index, :]
+        input2 = lam * input2 + (1 - lam) * input2[r_index, :]
 
-        return target, input_
+        return target, input1, input2
 
-    def __call__(self, target, input_):
+
+    def __call__(self, target, input1, input2):
         if self.use_identity:
             augment = random.randint(0, len(self.augments))
             if augment < len(self.augments):
-                target, input_ = self.augments[augment](target, input_)
+                target, input1, input2 = self.augments[augment](target, input1, input2)
+                #target, input2 = self.augments[augment](target, input2)
         else:
             augment = random.randint(0, len(self.augments) - 1)
-            target, input_ = self.augments[augment](target, input_)
-        return target, input_
+            target, input1, input2 = self.augments[augment](target, input1, input2)
+            #target, input2 = self.augments[augment](target, input2)
+
+        #print("size of target: {0}, input1: {1}, input2: {2}", target.shape, input1.shape, input2.shape)
+        return target, input1, input2
 
 
 class ImageCleanModel(BaseModel):
@@ -107,24 +113,35 @@ class ImageCleanModel(BaseModel):
             # define network net_g with Exponential Moving Average (EMA)
             # net_g_ema is used only for testing on one GPU and saving
             # There is no need to wrap with DistributedDataParallel
-            self.net_g_ema = define_network(self.opt['network_g']).to(
-                self.device)
+            # self.net_g_ema = define_network(self.opt['network_g']).to(
+            #     self.device)
+            # # load pretrained model
+            # load_path = self.opt['path'].get('pretrain_network_g', None)
+            # if load_path is not None:
+            #     self.load_network(self.net_g_ema, load_path,
+            #                       self.opt['path'].get('strict_load_g',
+            #                                            True), 'params_ema')
+            # else:
+            #     self.model_ema(0)  # copy net_g weight
+            # self.net_g_ema.eval()
+            self.net_g_ema = define_network(self.opt['network_g']).to(self.device)
+
             # load pretrained model
             load_path = self.opt['path'].get('pretrain_network_g', None)
             if load_path is not None:
                 self.load_network(self.net_g_ema, load_path,
-                                  self.opt['path'].get('strict_load_g',
-                                                       True), 'params_ema')
+                      self.opt['path'].get('strict_load_g', True), 'params_ema')
             else:
                 self.model_ema(0)  # copy net_g weight
             self.net_g_ema.eval()
 
+
         # define losses
         if train_opt.get('pixel_opt'):
             pixel_type = train_opt['pixel_opt'].pop('type')
-            cri_pix_cls = getattr(loss_module, pixel_type)  #根据pop出来的loss_type找到对应的loss函数
+            cri_pix_cls = getattr(loss_module, pixel_type)  
             self.cri_pix = cri_pix_cls(**train_opt['pixel_opt']).to(
-                self.device)      #如何写 weighted loss 呢？传参构造Loss函数
+                self.device)      #
         else:
             raise ValueError('pixel loss are None.')
 
@@ -157,14 +174,18 @@ class ImageCleanModel(BaseModel):
 
     def feed_train_data(self, data):
         self.lq = data['lq'].to(self.device)
+        self.th = data['th'].to(self.device)
+
         if 'gt' in data:
             self.gt = data['gt'].to(self.device)
 
         if self.mixing_flag:
-            self.gt, self.lq = self.mixing_augmentation(self.gt, self.lq)
+            self.gt, self.lq, self.th  = self.mixing_augmentation(self.gt, self.lq, self.th)
 
     def feed_data(self, data):
         self.lq = data['lq'].to(self.device)
+        self.th = data['th'].to(self.device)
+
         if 'gt' in data:
             self.gt = data['gt'].to(self.device)
 
@@ -172,7 +193,15 @@ class ImageCleanModel(BaseModel):
         self.optimizer_g.zero_grad()
 
         with autocast(enabled=self.use_amp):
-            preds = self.net_g(self.lq)
+            # print("lq shape:", self.lq.shape)
+            # print("th shape:", self.th.shape)
+            ther = self.th[:,0:1,:,:]
+            # x = torch.cat([self.lq, ther], 1)
+            #print("after concatenation: ", x.shape)
+            input_tuple = (self.lq, self.th)
+            preds = self.net_g(input_tuple)
+
+            #preds = self.net_g(self.lq, self.th)
             if not isinstance(preds, list):
                 preds = [preds]
 
@@ -182,12 +211,12 @@ class ImageCleanModel(BaseModel):
             # pixel loss
             l_pix = 0.
             for pred in preds:
-                l_pix += self.cri_pix(pred, self.gt) #此处统计batch的loss
+                l_pix += self.cri_pix(pred, self.gt) 
 
             loss_dict['l_pix'] = l_pix
 
         self.amp_scaler.scale(l_pix).backward()
-        self.amp_scaler.unscale_(self.optimizer_g) # 在梯度裁剪前先unscale梯度
+        self.amp_scaler.unscale_(self.optimizer_g) 
         # l_pix.backward()
 
         if self.opt['train']['use_grad_clip']:
@@ -205,6 +234,8 @@ class ImageCleanModel(BaseModel):
         scale = self.opt.get('scale', 1)
         mod_pad_h, mod_pad_w = 0, 0
         _, _, h, w = self.lq.size()
+        _, _, h, w = self.th.size()
+
         if h % window_size != 0:
             mod_pad_h = window_size - h % window_size
         if w % window_size != 0:
@@ -218,17 +249,22 @@ class ImageCleanModel(BaseModel):
     def nonpad_test(self, img=None):
         if img is None:
             img = self.lq
+
+        #ther = self.th[:,0:1,:,:]
+        input_tuple = (self.lq, self.th)
+
+        # x = torch.cat([img, ther], 1)
         if hasattr(self, 'net_g_ema'):
             self.net_g_ema.eval()
             with torch.no_grad():
-                pred = self.net_g_ema(img)
+                pred = self.net_g_ema(input_tuple)
             if isinstance(pred, list):
                 pred = pred[-1]
             self.output = pred
         else:
             self.net_g.eval()
             with torch.no_grad():
-                pred = self.net_g(img)
+                pred = self.net_g(input_tuple)
             if isinstance(pred, list):
                 pred = pred[-1]
             self.output = pred

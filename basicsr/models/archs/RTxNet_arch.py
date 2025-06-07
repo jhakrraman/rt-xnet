@@ -6,8 +6,31 @@ import math
 import warnings
 from torch.nn.init import _calculate_fan_in_and_fan_out
 from pdb import set_trace as stx
+from sklearn.decomposition import PCA
+
 # import cv2
 
+
+# def apply_pca(features, desired_channels):
+#     batch_size, height, width, channels = features.shape
+
+#     # Flatten the features and reshape to 2D array for PCA
+
+#     flattened_features = features.permute(0, 2, 3, 1).contiguous().view(-1, channels)
+
+#     # Convert to numpy and perform PCA
+#     pca = PCA(n_components=desired_channels)
+#     reduced_features_np = pca.fit_transform(flattened_features.detach().cpu().numpy())
+#     print("Reduced Features after applying PCA: ", reduced_features_np.shape)
+
+#     # Convert back to tensor and reshape
+#     reduced_features = torch.from_numpy(reduced_features_np).to(features.device)
+#     print("Reduced Features after convertng to numpy: ", reduced_features.shape)
+    
+#     reduced_features = reduced_features.view(batch_size, height, width, desired_channels).permute(0, 3, 1, 2)
+#     print("Final Reduced Features: ", reduced_features.shape)
+
+#     return reduced_features
 
 def _no_grad_trunc_normal_(tensor, mean, std, a, b):
     def norm_cdf(x):
@@ -158,7 +181,9 @@ class IG_MSA(nn.Module):
         illu_attn = illu_fea_trans # illu_fea: b,c,h,w -> b,h,w,c
         q, k, v, illu_attn = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.num_heads),
                                  (q_inp, k_inp, v_inp, illu_attn.flatten(1, 2)))
-        v = v * illu_attn
+        
+        
+        v = v  * illu_attn
         # q: b,heads,hw,c
         q = q.transpose(-2, -1)
         k = k.transpose(-2, -1)
@@ -321,31 +346,79 @@ class Denoiser(nn.Module):
         return out
 
 
-class RetinexFormer_Single_Stage(nn.Module):
+class RTxNet_Single_Stage(nn.Module):
     def __init__(self, in_channels=3, out_channels=3, n_feat=31, level=2, num_blocks=[1, 1, 1]):
-        super(RetinexFormer_Single_Stage, self).__init__()
-        self.estimator = Illumination_Estimator(n_feat)
-        self.denoiser = Denoiser(in_dim=in_channels,out_dim=out_channels,dim=n_feat,level=level,num_blocks=num_blocks)  #### 将 Denoiser 改为 img2img
+        super(RTxNet_Single_Stage, self).__init__()
+        self.estimator_rgb = Illumination_Estimator(n_feat)
+        self.estimator_thermal = Illumination_Estimator(n_feat)
+        self.cross_attention = IGAB(dim=n_feat, dim_head=n_feat // 4, heads=4, num_blocks=1)
+        self.denoiser = Denoiser(in_dim=in_channels, out_dim=out_channels, dim=n_feat, level=level, num_blocks=num_blocks)
     
     def forward(self, img):
         # img:        b,c=3,h,w
         
         # illu_fea:   b,c,h,w
         # illu_map:   b,c=3,h,w
+        img_rgb, img_thermal = img
+        # Estimate illumination for RGB image
+        #img_rgb = img_rgb1.resize(640, 512)
+        illu_fea_rgb, illu_map_rgb = self.estimator_rgb(img_rgb)
+        #print("Illu_fea_rgb: ", illu_fea_rgb.shape)
+        # Estimate illumination for thermal image
+        illu_fea_thermal, illu_map_thermal = self.estimator_thermal(img_thermal)
+        #print("Illu_fea_thermal: ", illu_fea_thermal.shape)
 
-        illu_fea, illu_map = self.estimator(img)
-        input_img = img * illu_map + img
-        output_img = self.denoiser(input_img,illu_fea)
+
+        #merged_features = torch.cat([illu_fea_rgb, illu_fea_thermal], dim=1)
+        #print("Merged Features: ", merged_features.shape)
+        #print("RGB Image: ", img_rgb.shape)
+        #print("Illu map RGB: ", illu_map_rgb.shape)
+
+        enhanced_fea_rgb = self.cross_attention(illu_fea_rgb, illu_fea_rgb)
+        #print("Illu_fea_rgb: ", enhanced_fea_rgb.shape)
+
+        enhanced_fea_thermal = self.cross_attention(illu_fea_thermal, illu_fea_thermal)
+        #print("Illu_fea_thermal: ", enhanced_fea_thermal.shape)
+
+
+        # Merge enhanced features
+        merged_features = torch.cat([enhanced_fea_rgb, enhanced_fea_thermal], dim=1)
+        #print("Merged Features: ", merged_features.shape)
+
+        batch_size, channels, height, width = merged_features.size()
+
+        # # Reshape to 2D array for PCA
+        # flattened_features = merged_features.permute(0, 2, 3, 1).contiguous().view(-1, channels)
+        desired_channels  = 40
+        # # Apply PCA along the channel dimension
+        # pca = PCA(n_components=desired_channels)
+        # reduced_features_np = pca.fit_transform(flattened_features.cpu().detach().numpy())
+
+        # # Reshape reduced features back to original shape
+        # reduced_features = torch.from_numpy(reduced_features_np).view(batch_size, height, width, -1).permute(0, 3, 1, 2)
+        flattened_features = merged_features.view(batch_size, channels, -1)
+        flattened_features = flattened_features.permute(0, 2, 1).contiguous().view(-1, channels)
+
+        # Apply PCA
+        pca = PCA(n_components=desired_channels)
+        reduced_features_np = pca.fit_transform(flattened_features.detach().cpu().numpy())
+        reduced_features = torch.from_numpy(reduced_features_np).view(batch_size, -1, desired_channels).permute(0, 2, 1).contiguous().view(batch_size, desired_channels, height, width)
+        
+        #print("Reduced Features: ", reduced_features.shape)
+        reduced_features = reduced_features.cuda()
+
+        input_img = img_rgb * illu_map_rgb + img_rgb
+        output_img = self.denoiser(input_img, reduced_features)
 
         return output_img
 
 
-class RetinexFormer(nn.Module):
+class RTxNet(nn.Module):
     def __init__(self, in_channels=3, out_channels=3, n_feat=31, stage=3, num_blocks=[1,1,1]):
-        super(RetinexFormer, self).__init__()
+        super(RTxNet, self).__init__()
         self.stage = stage
 
-        modules_body = [RetinexFormer_Single_Stage(in_channels=in_channels, out_channels=out_channels, n_feat=n_feat, level=2, num_blocks=num_blocks)
+        modules_body = [RTxNet_Single_Stage(in_channels=in_channels, out_channels=out_channels, n_feat=n_feat, level=2, num_blocks=num_blocks)
                         for _ in range(stage)]
         
         self.body = nn.Sequential(*modules_body)

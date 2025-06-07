@@ -28,7 +28,7 @@ from pdb import set_trace as stx
 def parse_options(is_train=True):
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--opt', type=str, default='Options/RetinexFormer_LOL_v1.yml', help='Path to option YAML file.')
+        '--opt', type=str, default='Options/RTxNet_LLVIP.yml', help='Path to option YAML file.')
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm'],
@@ -79,31 +79,23 @@ def init_loggers(opt):
     logger.info(get_env_info())
     logger.info(dict2str(opt))
 
-    # initialize wandb logger before tensorboard logger to allow proper sync:
-    # if (opt['logger'].get('wandb')
-    #         is not None) and (opt['logger']['wandb'].get('project')
-    #                           is not None) and ('debug' not in opt['name']):
-    #     assert opt['logger'].get('use_tb_logger') is True, (
-    #         'should turn on tensorboard when using wandb')
-    #     init_wandb_logger(opt)
-
     tb_logger = None
     if opt['logger'].get('use_tb_logger') and 'debug' not in opt['name']:
         tb_logger = init_tb_logger(log_dir=osp.join('tb_logger', opt['name']))
     return logger, tb_logger
 
 
-def create_train_val_dataloader(opt, logger):  #train loader 和 val loader 一起构建
+def create_train_val_dataloader(opt, logger):  #train loader  val loader 
     # create train and val dataloaders
     train_loader, val_loader = None, None
     for phase, dataset_opt in opt['datasets'].items():
         # stx()
         if phase == 'train':
             dataset_enlarge_ratio = dataset_opt.get('dataset_enlarge_ratio', 1)
-            train_set = create_dataset(dataset_opt)                                 #将option中的dataset参数传入create_dataset中构建train_set
+            train_set = create_dataset(dataset_opt)                                 # option dataset create_dataset train_set
             # stx()
             train_sampler = EnlargedSampler(train_set, opt['world_size'],
-                                            opt['rank'], dataset_enlarge_ratio)     #缺少关键字 world_size 和 rank，train_sampler是做什么？从get_dist_info得到
+                                            opt['rank'], dataset_enlarge_ratio)     #world_size  rank，train_sampler get_dist_info
             # stx()
             train_loader = create_dataloader(
                 train_set,
@@ -116,9 +108,9 @@ def create_train_val_dataloader(opt, logger):  #train loader 和 val loader 一�
 
             num_iter_per_epoch = math.ceil(
                 len(train_set) * dataset_enlarge_ratio /
-                (dataset_opt['batch_size_per_gpu'] * opt['world_size']))  #一个epoch遍历一次数据
+                (dataset_opt['batch_size_per_gpu'] * opt['world_size']))  #一个epoch
             total_iters = int(opt['train']['total_iter'])
-            total_epochs = math.ceil(total_iters / (num_iter_per_epoch)) #一个iteration就是一次 inference + backward，总的iteration是不变的
+            total_epochs = math.ceil(total_iters / (num_iter_per_epoch)) #一个iterationinference + backward，iteration
             logger.info(
                 'Training statistics:'
                 f'\n\tNumber of train images: {len(train_set)}'
@@ -155,7 +147,7 @@ def main():
     # torch.backends.cudnn.deterministic = True
 
     # automatic resume ..
-    state_folder_path = 'experiments/{}/training_states/'.format(opt['name']) #状态路径
+    state_folder_path = 'experiments/{}/training_states/'.format(opt['name']) 
     import os
     try:
         states = os.listdir(state_folder_path)
@@ -163,12 +155,12 @@ def main():
         states = []
 
     resume_state = None
-    if len(states) > 0: #如果路径已存在
+    if len(states) > 0: 
         max_state_file = '{}.state'.format(max([int(x[0:-6]) for x in states]))
         resume_state = os.path.join(state_folder_path, max_state_file)
         opt['path']['resume_state'] = resume_state
 
-    # load resume states if necessary，resume_state是重新训练的时候接上的吗？
+    # load resume states if necessary，resume_state？
     if opt['path'].get('resume_state'):
         device_id = torch.cuda.current_device()
         resume_state = torch.load(
@@ -269,7 +261,7 @@ def main():
 
             # ------Progressive learning ---------------------
             j = ((current_iter > groups) != True).nonzero()[
-                0]  # 根据当前的iter次数判断在哪个阶段
+                0]  
             if len(j) == 0:
                 bs_j = len(groups) - 1
             else:
@@ -284,12 +276,14 @@ def main():
                 logger_j[bs_j] = False
 
             lq = train_data['lq']
+            th = train_data['th']
             gt = train_data['gt']
 
-            if mini_batch_size < batch_size:  # 默认生成batch_size对图片，小于就要抽样
+            if mini_batch_size < batch_size:  # batch_size
                 indices = random.sample(
                     range(0, batch_size), k=mini_batch_size)
                 lq = lq[indices]
+                th = th[indices]
                 gt = gt[indices]
 
             if mini_gt_size < gt_size:
@@ -298,10 +292,11 @@ def main():
                 x1 = x0 + mini_gt_size
                 y1 = y0 + mini_gt_size
                 lq = lq[:, :, x0:x1, y0:y1]
+                th = th[:, :, x0:x1, y0:y1]
                 gt = gt[:, :, x0 * scale:x1 * scale, y0 * scale:y1 * scale]
             # -------------------------------------------
             # print(lq.shape)
-            model.feed_train_data({'lq': lq, 'gt': gt})
+            model.feed_train_data({'lq': lq, 'th': th, 'gt': gt})
             model.optimize_parameters(current_iter)
 
             iter_time = time.time() - iter_time

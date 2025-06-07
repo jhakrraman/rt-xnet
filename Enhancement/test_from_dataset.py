@@ -26,32 +26,41 @@ from skimage import metrics
 from basicsr.models import create_model
 from basicsr.utils.options import dict2str, parse
 
-def self_ensemble(x, model):
-    def forward_transformed(x, hflip, vflip, rotate, model):
+def self_ensemble(x_tuple, model):
+    def forward_transformed(x_tuple, hflip, vflip, rotate, model):
+        x_rgb, x_thermal = x_tuple
+        
         if hflip:
-            x = torch.flip(x, (-2,))
+            x_rgb = torch.flip(x_rgb, (-2,))
+            x_thermal = torch.flip(x_thermal, (-2,))
         if vflip:
-            x = torch.flip(x, (-1,))
+            x_rgb = torch.flip(x_rgb, (-1,))
+            x_thermal = torch.flip(x_thermal, (-1,))
         if rotate:
-            x = torch.rot90(x, dims=(-2, -1))
-        x = model(x)
+            x_rgb = torch.rot90(x_rgb, dims=(-2, -1))
+            x_thermal = torch.rot90(x_thermal, dims=(-2, -1))
+            
+        result = model((x_rgb, x_thermal))
+        
         if rotate:
-            x = torch.rot90(x, dims=(-2, -1), k=3)
+            result = torch.rot90(result, dims=(-2, -1), k=3)
         if vflip:
-            x = torch.flip(x, (-1,))
+            result = torch.flip(result, (-1,))
         if hflip:
-            x = torch.flip(x, (-2,))
-        return x
+            result = torch.flip(result, (-2,))
+        return result
+    
     t = []
     for hflip in [False, True]:
         for vflip in [False, True]:
             for rot in [False, True]:
-                t.append(forward_transformed(x, hflip, vflip, rot, model))
+                t.append(forward_transformed(x_tuple, hflip, vflip, rot, model))
     t = torch.stack(t)
     return torch.mean(t, dim=0)
 
+
 parser = argparse.ArgumentParser(
-    description='Image Enhancement using Retinexformer')
+    description='Image Enhancement using RTxNet')
 
 parser.add_argument('--input_dir', default='./Enhancement/Datasets',
                     type=str, help='Directory of validation images')
@@ -60,10 +69,10 @@ parser.add_argument('--result_dir', default='./results/',
 parser.add_argument('--output_dir', default='',
                     type=str, help='Directory for output')
 parser.add_argument(
-    '--opt', type=str, default='Options/RetinexFormer_SDSD_indoor.yml', help='Path to option YAML file.')
-parser.add_argument('--weights', default='pretrained_weights/SDSD_indoor.pth',
+    '--opt', type=str, default='Options/RTxNet_LLVIP.yml', help='Path to option YAML file.')
+parser.add_argument('--weights', default='pretrained_weights/LLVIP_best.pth',
                     type=str, help='Path to weights')
-parser.add_argument('--dataset', default='SDSD_indoor', type=str,
+parser.add_argument('--dataset', default='LLVIP', type=str,
                     help='Test Dataset') 
 parser.add_argument('--gpus', type=str, default="0", help='GPU devices.')
 parser.add_argument('--GT_mean', action='store_true', help='Use the mean of GT to rectify the output of the model')
@@ -71,7 +80,7 @@ parser.add_argument('--self_ensemble', action='store_true', help='Use self-ensem
 
 args = parser.parse_args()
 
-# 指定 gpu
+# gpu
 gpu_list = ','.join(str(x) for x in args.gpus)
 os.environ['CUDA_VISIBLE_DEVICES'] = gpu_list
 print('export CUDA_VISIBLE_DEVICES=' + gpu_list)
@@ -99,7 +108,6 @@ s = x['network_g'].pop('type')
 
 model_restoration = create_model(opt).net_g
 
-# 加载模型
 checkpoint = torch.load(weights)
 
 try:
@@ -115,7 +123,6 @@ model_restoration.cuda()
 model_restoration = nn.DataParallel(model_restoration)
 model_restoration.eval()
 
-# 生成输出结果的文件
 factor = 4
 dataset = args.dataset
 config = os.path.basename(args.opt).split('.')[0]
@@ -131,151 +138,97 @@ if args.output_dir != '':
 
 psnr = []
 ssim = []
-if dataset in ['SID', 'SMID', 'SDSD_indoor', 'SDSD_outdoor']:
-    os.makedirs(result_dir_input, exist_ok=True)
-    os.makedirs(result_dir_gt, exist_ok=True)
-    if dataset == 'SID':
-        from basicsr.data.SID_image_dataset import Dataset_SIDImage as Dataset
-    elif dataset == 'SMID':
-        from basicsr.data.SMID_image_dataset import Dataset_SMIDImage as Dataset
-    else:
-        from basicsr.data.SDSD_image_dataset import Dataset_SDSDImage as Dataset
-    opt = opt['datasets']['val']
-    opt['phase'] = 'test'
-    if opt.get('scale') is None:
-        opt['scale'] = 1
-    if '~' in opt['dataroot_gt']:
-        opt['dataroot_gt'] = os.path.expanduser('~') + opt['dataroot_gt'][1:]
-    if '~' in opt['dataroot_lq']:
-        opt['dataroot_lq'] = os.path.expanduser('~') + opt['dataroot_lq'][1:]
-    dataset = Dataset(opt)
-    print(f'test dataset length: {len(dataset)}')
-    dataloader = DataLoader(dataset=dataset, batch_size=1, shuffle=False)
-    with torch.inference_mode():
-        for data_batch in tqdm(dataloader):
-            torch.cuda.ipc_collect()
-            torch.cuda.empty_cache()
 
-            input_ = data_batch['lq']
-            input_save = data_batch['lq'].cpu().permute(
-                0, 2, 3, 1).squeeze(0).numpy()
-            target = data_batch['gt'].cpu().permute(
-                0, 2, 3, 1).squeeze(0).numpy()
-            inp_path = data_batch['lq_path'][0]
+input_dir_lq = opt['datasets']['val']['dataroot_lq']
+input_dir_th = opt['datasets']['val']['dataroot_th']
+target_dir = opt['datasets']['val']['dataroot_gt']
+print(input_dir_lq)
+print(input_dir_th)
+print(target_dir)
 
-            # Padding in case images are not multiples of 4
-            h, w = input_.shape[2], input_.shape[3]
-            H, W = ((h + factor) // factor) * \
-                factor, ((w + factor) // factor) * factor
-            padh = H - h if h % factor != 0 else 0
-            padw = W - w if w % factor != 0 else 0
-            input_ = F.pad(input_, (0, padw, 0, padh), 'reflect')
+input_paths_lq = natsorted(
+    glob(os.path.join(input_dir_lq, '*.png')) + glob(os.path.join(input_dir_lq, '*.jpg')))
 
+input_paths_th = natsorted(
+    glob(os.path.join(input_dir_th, '*.png')) + glob(os.path.join(input_dir_th, '*.jpg')))
+
+
+target_paths = natsorted(glob(os.path.join(
+    target_dir, '*.png')) + glob(os.path.join(target_dir, '*.jpg')))
+
+with torch.inference_mode():
+    for inp_path_lq, inp_path_th, tar_path in tqdm(zip(input_paths_lq, input_paths_th, target_paths), total=len(target_paths)):
+
+        torch.cuda.ipc_collect()
+        torch.cuda.empty_cache()
+
+        img_lq = np.float32(utils.load_img(inp_path_lq)) / 255.
+        img_th = np.float32(utils.load_img(inp_path_th)) / 255.
+
+        target = np.float32(utils.load_img(tar_path)) / 255.
+
+        img_rgb = torch.from_numpy(img_lq).permute(2, 0, 1)
+        input_rgb = img_rgb.unsqueeze(0).cuda()
+
+        img_th = torch.from_numpy(img_th).permute(2, 0, 1)
+        input_thermal = img_th.unsqueeze(0).cuda()
+
+        # Padding in case images are not multiples of 4
+        # Padding for both inputs
+        #input_rgb, input_thermal = input_tuple
+        h, w = input_rgb.shape[2], input_rgb.shape[3]
+        H, W = ((h + factor) // factor) * factor, ((w + factor) // factor) * factor
+        padh = H - h if h % factor != 0 else 0
+        padw = W - w if w % factor != 0 else 0
+
+        input_rgb = F.pad(input_rgb, (0, padw, 0, padh), 'reflect')
+        input_thermal = F.pad(input_thermal, (0, padw, 0, padh), 'reflect')
+        input_tuple = (input_rgb, input_thermal)
+
+
+        if h < 3000 and w < 3000:
+            # Replace single input with tuple
             if args.self_ensemble:
-                restored = self_ensemble(input_, model_restoration)
+                restored = self_ensemble(input_tuple, model_restoration)
             else:
-                restored = model_restoration(input_)
+                restored = model_restoration(input_tuple)
 
-            # Unpad images to original dimensions
-            restored = restored[:, :, :h, :w]
-
-            restored = torch.clamp(restored, 0, 1).cpu(
-            ).detach().permute(0, 2, 3, 1).squeeze(0).numpy()
-
-            if args.GT_mean:
-                # This test setting is the same as KinD, LLFlow, and recent diffusion models
-                # Please refer to Line 73 (https://github.com/zhangyhuaee/KinD/blob/master/evaluate_LOLdataset.py)
-                mean_restored = cv2.cvtColor(restored.astype(np.float32), cv2.COLOR_BGR2GRAY).mean()
-                mean_target = cv2.cvtColor(target.astype(np.float32), cv2.COLOR_BGR2GRAY).mean()
-                restored = np.clip(restored * (mean_target / mean_restored), 0, 1)
-
-            psnr.append(utils.PSNR(target, restored))
-            ssim.append(utils.calculate_ssim(
-                img_as_ubyte(target), img_as_ubyte(restored)))
-            type_id = os.path.dirname(inp_path).split('/')[-1]
-            os.makedirs(os.path.join(result_dir, type_id), exist_ok=True)
-            os.makedirs(os.path.join(result_dir_input, type_id), exist_ok=True)
-            os.makedirs(os.path.join(result_dir_gt, type_id), exist_ok=True)
-            utils.save_img((os.path.join(result_dir, type_id, os.path.splitext(
-                os.path.split(inp_path)[-1])[0] + '.png')), img_as_ubyte(restored))
-            utils.save_img((os.path.join(result_dir_input, type_id, os.path.splitext(
-                os.path.split(inp_path)[-1])[0] + '.png')), img_as_ubyte(input_save))
-            utils.save_img((os.path.join(result_dir_gt, type_id, os.path.splitext(
-                os.path.split(inp_path)[-1])[0] + '.png')), img_as_ubyte(target))
-else:
-
-    input_dir = opt['datasets']['val']['dataroot_lq']
-    target_dir = opt['datasets']['val']['dataroot_gt']
-    print(input_dir)
-    print(target_dir)
-
-    input_paths = natsorted(
-        glob(os.path.join(input_dir, '*.png')) + glob(os.path.join(input_dir, '*.jpg')))
-
-    target_paths = natsorted(glob(os.path.join(
-        target_dir, '*.png')) + glob(os.path.join(target_dir, '*.jpg')))
-
-    with torch.inference_mode():
-        for inp_path, tar_path in tqdm(zip(input_paths, target_paths), total=len(target_paths)):
-
-            torch.cuda.ipc_collect()
-            torch.cuda.empty_cache()
-
-            img = np.float32(utils.load_img(inp_path)) / 255.
-            target = np.float32(utils.load_img(tar_path)) / 255.
-
-            img = torch.from_numpy(img).permute(2, 0, 1)
-            input_ = img.unsqueeze(0).cuda()
-
-            # Padding in case images are not multiples of 4
-            b, c, h, w = input_.shape
-            H, W = ((h + factor) // factor) * \
-                factor, ((w + factor) // factor) * factor
-            padh = H - h if h % factor != 0 else 0
-            padw = W - w if w % factor != 0 else 0
-            input_ = F.pad(input_, (0, padw, 0, padh), 'reflect')
-
-            if h < 3000 and w < 3000:
-                if args.self_ensemble:
-                    restored = self_ensemble(input_, model_restoration)
-                else:
-                    restored = model_restoration(input_)
+        else:
+            # split and test
+            input_1 = input_rgb[:, :, :, 1::2]
+            input_2 = input_rgb[:, :, :, 0::2]
+            if args.self_ensemble:
+                restored_1 = self_ensemble(input_1, model_restoration)
+                restored_2 = self_ensemble(input_2, model_restoration)
             else:
-                # split and test
-                input_1 = input_[:, :, :, 1::2]
-                input_2 = input_[:, :, :, 0::2]
-                if args.self_ensemble:
-                    restored_1 = self_ensemble(input_1, model_restoration)
-                    restored_2 = self_ensemble(input_2, model_restoration)
-                else:
-                    restored_1 = model_restoration(input_1)
-                    restored_2 = model_restoration(input_2)
-                restored = torch.zeros_like(input_)
-                restored[:, :, :, 1::2] = restored_1
-                restored[:, :, :, 0::2] = restored_2
+                restored_1 = model_restoration(input_1)
+                restored_2 = model_restoration(input_2)
+            restored = torch.zeros_like(input_rgb)
+            restored[:, :, :, 1::2] = restored_1
+            restored[:, :, :, 0::2] = restored_2
 
-            # Unpad images to original dimensions
-            restored = restored[:, :, :h, :w]
+        # Unpad images to original dimensions
+        restored = restored[:, :, :h, :w]
 
-            restored = torch.clamp(restored, 0, 1).cpu(
-            ).detach().permute(0, 2, 3, 1).squeeze(0).numpy()
+        restored = torch.clamp(restored, 0, 1).cpu(
+        ).detach().permute(0, 2, 3, 1).squeeze(0).numpy()
 
-            if args.GT_mean:
-                # This test setting is the same as KinD, LLFlow, and recent diffusion models
-                # Please refer to Line 73 (https://github.com/zhangyhuaee/KinD/blob/master/evaluate_LOLdataset.py)
-                mean_restored = cv2.cvtColor(restored.astype(np.float32), cv2.COLOR_BGR2GRAY).mean()
-                mean_target = cv2.cvtColor(target.astype(np.float32), cv2.COLOR_BGR2GRAY).mean()
-                restored = np.clip(restored * (mean_target / mean_restored), 0, 1)
+        if args.GT_mean:
+            # This test setting is the same as KinD, LLFlow, and recent diffusion models
+            # Please refer to Line 73 (https://github.com/zhangyhuaee/KinD/blob/master/evaluate_LOLdataset.py)
+            mean_restored = cv2.cvtColor(restored.astype(np.float32), cv2.COLOR_BGR2GRAY).mean()
+            mean_target = cv2.cvtColor(target.astype(np.float32), cv2.COLOR_BGR2GRAY).mean()
+            restored = np.clip(restored * (mean_target / mean_restored), 0, 1)
 
-            psnr.append(utils.PSNR(target, restored))
-            ssim.append(utils.calculate_ssim(
-                img_as_ubyte(target), img_as_ubyte(restored)))
-            if output_dir != '':
-                utils.save_img((os.path.join(output_dir, os.path.splitext(
-                    os.path.split(inp_path)[-1])[0] + '.png')), img_as_ubyte(restored))
-            else:
-                utils.save_img((os.path.join(result_dir, os.path.splitext(
-                    os.path.split(inp_path)[-1])[0] + '.png')), img_as_ubyte(restored))
+        psnr.append(utils.PSNR(target, restored))
+        ssim.append(utils.calculate_ssim(
+            img_as_ubyte(target), img_as_ubyte(restored)))
+        if output_dir != '':
+            utils.save_img((os.path.join(output_dir, os.path.splitext(
+                os.path.split(inp_path_lq)[-1])[0] + '.png')), img_as_ubyte(restored))
+        else:
+            utils.save_img((os.path.join(result_dir, os.path.splitext(
+                os.path.split(inp_path_lq)[-1])[0] + '.png')), img_as_ubyte(restored))
 
 psnr = np.mean(np.array(psnr))
 ssim = np.mean(np.array(ssim))
