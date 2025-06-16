@@ -8,6 +8,6 @@
 ---
 
 ## Model Architecture
-![](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/model_architecture_ICIP.pdf)
+![ ](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/model_architecture_ICIP.pdf)
 
 
