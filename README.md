@@ -44,40 +44,10 @@ We suggest you use pytorch 1.11 to re-implement the results in our ICCV 2023 pap
 
 - **Make Conda Environment**
 
-    conda create -n Retinexformer python=3.7  
-    conda activate Retinexformer  
-
-- **Install Dependencies**
-
-    conda install pytorch=1.11 torchvision cudatoolkit=11.3 -c pytorch  
-
-    pip install matplotlib scikit-learn scikit-image opencv-python yacs joblib natsort h5py tqdm  
-
-    pip install einops gdown addict future lmdb numpy pyyaml requests scipy yapf lpips  
-
-- **Install BasicSR**
-
-    python setup.py develop --no_cuda_ext  
-
-## 1.2 Install the environment with Pytorch 2
-
-- **Make Conda Environment**
-
-    conda create -n torch2 python=3.9 -y  
-    conda activate torch2  
-
-- **Install Dependencies**
-
-    conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia  
-
-    pip install matplotlib scikit-learn scikit-image opencv-python yacs joblib natsort h5py tqdm  
-
-    pip install einops gdown addict future lmdb numpy pyyaml requests scipy yapf lpips thop timm  
-
-- **Install BasicSR**
-
-    python setup.py develop --no_cuda_ext  
-
+```
+conda create -n Retinexformer python=3.7
+conda activate Retinexformer
+```
 
 
 ## If you find this code or the dataset useful for you, please cite
