@@ -10,4 +10,29 @@
 ## Model Architecture
 ![ ](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/model_architecture.png)
 
+---
+
+## Qualitative Results:
+
+![](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/qualitative_results.png)
+
+---
+
+## V-TIEE Dataset
+
+![Real-world V-TIEE Dataset: Co-located Visible-Thermal Image Pairs for HDR and Low-light Vision Research](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/v-tiee_dataset.png)
+
+---
+
+### High-gain Multi-exposure Visible-Thermal Image Pairs for Test Input Scenes
+
+![](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/high_gain_v-tiee.png)
+
+---
+
+### Low-gain Multi-exposure Visible-Thermal Image Pairs for Reference Scenes
+
+![](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/low_gain_v-tiee.png)
+
+---
 
