@@ -38,15 +38,14 @@
 
 # 1. Create Environment
 
-We suggest you use pytorch 1.11 to re-implement the results in our ICCV 2023 paper and pytorch 2 to re-implement the results in NTIRE 2024 Challenge because pytorch 2 can save more memory in mix-precision training.
 
 ## 1.1 Install the environment with Pytorch 1.11
 
 - **Make Conda Environment**
 
 ```
-conda create -n Retinexformer python=3.7
-conda activate Retinexformer
+conda create -n rtx-net python=3.7
+conda activate rtx-net
 ```
 
 
