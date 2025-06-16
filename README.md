@@ -4,3 +4,9 @@
 ---
 
 [Paper](https://arxiv.org/abs/2505.24705), [Supplementary Material](https://sigport.org/sites/default/files/docs/Supplementary_11.pdf)
+
+---
+
+## Model Architecture
+
+
