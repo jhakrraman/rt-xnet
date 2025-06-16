@@ -38,7 +38,7 @@
 
 ## If you find this code or the dataset useful for you, please cite
 
-@misc{jha2025rtxnetrgbthermalcross,  
+''' @misc{jha2025rtxnetrgbthermalcross,  
       title={RT-X Net: RGB-Thermal cross attention network for Low-Light Image Enhancement},   
       author={Raman Jha and Adithya Lenka and Mani Ramanagopal and Aswin Sankaranarayanan and Kaushik Mitra},  
       year={2025},  
@@ -46,4 +46,4 @@
       archivePrefix={arXiv},  
       primaryClass={cs.CV},  
       url={https://arxiv.org/abs/2505.24705},   
-}
+} ''''
