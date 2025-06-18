@@ -36,7 +36,7 @@
 
 ---
 
-# 1. Create Environment
+# 1. Environment Creation:
 
 - **Make Conda Environment**
 
@@ -60,6 +60,29 @@ pip install einops gdown addict future lmdb numpy pyyaml requests scipy yapf lpi
 ```
 python setup.py develop --no_cuda_ext
 ```
+
+# 2. Dataset Preparation:
+
+Download the **LLVIP dataset** here.     
+[Google Drive](https://drive.google.com/file/d/1XOfve52_4zTqPBaxCBhnV74GvgIMe0rn/view?usp=sharing)
+[Hugging Face](https://huggingface.co/datasets/jhakrraman/LLVIP)
+
+You can also download the dataset from Hugging Face using these commands.
+
+```
+git lfs install
+git clone https://huggingface.co/datasets/jhakrraman/LLVIP
+```
+
+After the download, place it in ./data/LLVIP
+ 
+
+The proposed **V-TIEE dataset** will be released shortly.
+
+---
+
+# 3. Training
+
 
 
 ## If you find this code or the dataset useful for you, please cite
