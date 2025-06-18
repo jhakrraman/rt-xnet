@@ -8,7 +8,7 @@
 ---
 
 ## Model Architecture
----
+
 ![ ](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/model_architecture.png)
 
 
@@ -103,7 +103,7 @@ python3 Enhancement/test_from_dataset.py --opt Options/RTxNet_LLVIP.yml --weight
 ```
 
 
-Our work is based on the [Retinexformer](https://github.com/caiyuanhao1998/Retinexformer). We thank the authors for releasing their code.
+Our work is based on [Retinexformer](https://github.com/caiyuanhao1998/Retinexformer). We thank the authors for releasing their code.
 
 ## If you find this code or the dataset useful for you, please cite
 
