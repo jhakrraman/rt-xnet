@@ -10,16 +10,16 @@
 ## Model Architecture
 ![ ](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/model_architecture.png)
 
----
+
 
 ## Qualitative Results:
-
+---
 ![](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/qualitative_results.png)
 
----
+
 
 ## V-TIEE Dataset
-
+---
 ![Real-world V-TIEE Dataset: Co-located Visible-Thermal Image Pairs for HDR and Low-light Vision Research](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/v-tiee_dataset.png)
 
 ---
@@ -34,10 +34,10 @@
 
 ![](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/low_gain_v-tiee.png)
 
----
+
 
 # 1. Environment Creation
-
+---
 - **Make Conda Environment**
 
 ```
@@ -60,10 +60,10 @@ pip install einops gdown addict future lmdb numpy pyyaml requests scipy yapf lpi
 ```
 python setup.py develop --no_cuda_ext
 ```
----
+
 
 # 2. Dataset Preparation
-
+---
 Download the **LLVIP dataset** here.     
 [Google Drive](https://drive.google.com/file/d/1XOfve52_4zTqPBaxCBhnV74GvgIMe0rn/view?usp=sharing)
 [Hugging Face](https://huggingface.co/datasets/jhakrraman/LLVIP)
@@ -80,10 +80,10 @@ After the download, place it in ./data/LLVIP
 
 The proposed **V-TIEE dataset** will be released shortly.
 
----
+
 
 # 3. Training
-
+---
 To perform training of the RT-X Net, use the following command.
 
 ```
@@ -96,7 +96,7 @@ python3 basicsr/train.py --opt Options/RTxNet_LLVIP.yml
 ---
 
 # 4. Testing
-
+---
 Download our pre-trained model of the RT-X Net from [Google Drive](https://drive.google.com/file/d/14pX93m6JZWLDMRMR_3YYCRiKMtFk9TeL/view?usp=sharing). Put them in the folder pretrained_weights.
 
 ```
@@ -106,13 +106,13 @@ conda activate rtx-net
 # LLVIP
 python3 Enhancement/test_from_dataset.py --opt Options/RTxNet_LLVIP.yml --weights pretrained_weights/LLVIP_best.pth --dataset LLVIP
 ```
----
+
 
 Our work is based on the [Retinexformer](https://github.com/caiyuanhao1998/Retinexformer). We thank the authors for releasing their code.
 
 ## If you find this code or the dataset useful for you, please cite
 
-<pre> 
+``` 
 @misc{jha2025rtxnetrgbthermalcross,  
       title={RT-X Net: RGB-Thermal cross attention network for Low-Light Image Enhancement},   
       author={Raman Jha and Adithya Lenka and Mani Ramanagopal and Aswin Sankaranarayanan and Kaushik Mitra},  
@@ -122,5 +122,4 @@ Our work is based on the [Retinexformer](https://github.com/caiyuanhao1998/Retin
       primaryClass={cs.CV},  
       url={https://arxiv.org/abs/2505.24705},   
 }
-</pre>
-
+```
