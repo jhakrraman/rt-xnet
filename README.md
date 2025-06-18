@@ -60,6 +60,7 @@ pip install einops gdown addict future lmdb numpy pyyaml requests scipy yapf lpi
 ```
 python setup.py develop --no_cuda_ext
 ```
+---
 
 # 2. Dataset Preparation
 
@@ -83,6 +84,16 @@ The proposed **V-TIEE dataset** will be released shortly.
 
 # 3. Training
 
+To perform training of the RT-X Net, use the following command.
+
+```
+# activate the environment
+conda activate rtx-net
+
+# LLVIP
+python3 basicsr/train.py --opt Options/RTxNet_LLVIP.yml
+```
+
 # 4. Testing
 
 Download our pre-trained model of the RT-X Net from [Google Drive](https://drive.google.com/file/d/14pX93m6JZWLDMRMR_3YYCRiKMtFk9TeL/view?usp=sharing). Put them in the folder pretrained_weights.
@@ -94,7 +105,7 @@ conda activate rtx-net
 # LLVIP
 python3 Enhancement/test_from_dataset.py --opt Options/RTxNet_LLVIP.yml --weights pretrained_weights/LLVIP_best.pth --dataset LLVIP
 ```
-
+---
 
 ## If you find this code or the dataset useful for you, please cite
 
