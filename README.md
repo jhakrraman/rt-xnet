@@ -14,16 +14,16 @@
 
 
 ## Qualitative Results:
----
+
 ![](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/qualitative_results.png)
 
 
 
 ## V-TIEE Dataset
----
+
 ![Real-world V-TIEE Dataset: Co-located Visible-Thermal Image Pairs for HDR and Low-light Vision Research](https://github.com/jhakrraman/rt-xnet/blob/master/imgs/v-tiee_dataset.png)
 
----
+
 
 ### High-gain Multi-exposure Visible-Thermal Image Pairs for Test Input Scenes
 ---
@@ -36,7 +36,7 @@
 
 
 ## 1. Environment Creation
----
+
 - **Make Conda Environment**
 
 ```
@@ -62,7 +62,7 @@ python setup.py develop --no_cuda_ext
 
 
 ## 2. Dataset Preparation
----
+
 Download the **LLVIP dataset** here.     
 [Google Drive](https://drive.google.com/file/d/1XOfve52_4zTqPBaxCBhnV74GvgIMe0rn/view?usp=sharing)
 [Hugging Face](https://huggingface.co/datasets/jhakrraman/LLVIP)
@@ -79,7 +79,7 @@ After the download, place it in ./data/LLVIP
 The proposed **V-TIEE dataset** will be released shortly.
 
 ## 3. Training
----
+
 To perform training of the RT-X Net, use the following command.
 
 ```
@@ -91,7 +91,7 @@ python3 basicsr/train.py --opt Options/RTxNet_LLVIP.yml
 ```
 
 ## 4. Testing
----
+
 Download our pre-trained model of the RT-X Net from [Google Drive](https://drive.google.com/file/d/14pX93m6JZWLDMRMR_3YYCRiKMtFk9TeL/view?usp=sharing). Put them in the folder pretrained_weights.
 
 ```
