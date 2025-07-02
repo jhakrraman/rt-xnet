@@ -5,6 +5,8 @@
 
 [Paper](https://arxiv.org/abs/2505.24705), [Supplementary Material](https://sigport.org/sites/default/files/docs/Supplementary_11.pdf), [Web Page](https://sites.google.com/view/rt-xnet/home)
 
+Our paper has been added to the [Awesome Low Light Image Enhancement List](https://github.com/zhihongz/awesome-low-light-image-enhancement).
+
 ---
 
 ## Model Architecture
