@@ -69,7 +69,7 @@ Download the **LLVIP dataset** here.
 [Google Drive](https://drive.google.com/file/d/1XOfve52_4zTqPBaxCBhnV74GvgIMe0rn/view?usp=sharing)
 [Hugging Face](https://huggingface.co/datasets/jhakrraman/LLVIP)
 
-You can also download the dataset from Hugging Face using these commands.
+You can also download the dataset directly from Hugging Face using these commands.
 
 ```
 git lfs install
@@ -78,7 +78,19 @@ git clone https://huggingface.co/datasets/jhakrraman/LLVIP
 
 After the download, place it in ./data/LLVIP
 
-The proposed **V-TIEE dataset** will be released shortly.
+Download the **V-TIEE dataset** here.
+[Google Drive](https://drive.google.com/file/d/1ce5Dq0v4ORcDzoqTxRNF602LWFfkvlpg/view?usp=sharing)
+[Hugging Face](https://huggingface.co/datasets/jhakrraman/V-TIEE)
+
+Similar to the LLVIP dataset, you can also download the dataset directly from Hugging Face using these commands.
+
+```
+git lfs install
+git clone https://huggingface.co/datasets/jhakrraman/V-TIEE
+```
+
+The proposed dataset can either be used for testing the purpose of real-world low-light image enhancement or HDR image generation.
+To test the RT-X net on the V-TIEE dataset, please make the V-TIEE dataset folder structure similar to the LLVIP dataset, and choose different types of images with various noises and illumination in real-time.
 
 ## 3. Training
 
