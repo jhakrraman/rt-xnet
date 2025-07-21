@@ -106,7 +106,7 @@ python3 basicsr/train.py --opt Options/RTxNet_LLVIP.yml
 
 ## 4. Testing
 
-Download our pre-trained model of the RT-X Net from [Google Drive](https://drive.google.com/file/d/14pX93m6JZWLDMRMR_3YYCRiKMtFk9TeL/view?usp=sharing) and [Hugging Face](https://huggingface.co/jhakrraman/RT-X_Net).    
+Download our pre-trained model of the RT-X Net from [Google Drive](https://drive.google.com/file/d/1dPrlnOQpQqzih-1F-AyKlvFIPg5gQLRF/view?usp=sharing) and [Hugging Face](https://huggingface.co/jhakrraman/RT-X_Net).    
 Put them in the folder pretrained_weights.
 
 ```
